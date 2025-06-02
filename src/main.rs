@@ -57,6 +57,10 @@ fn main() {
         .subcommand(SubCommand::with_name("view-access")
             .arg(Arg::with_name("superuser")
                 .required(true)))
+        .subcommand(SubCommand::with_name("revoke-access")
+            .arg(Arg::with_name("superuser").required(true))
+            .arg(Arg::with_name("ip").required(true))
+            .arg(Arg::with_name("server").required(true)))
         .subcommand(SubCommand::with_name("shell")
             .arg(Arg::with_name("ip")
                 .required(true))
@@ -88,7 +92,17 @@ fn main() {
             return;
         }
         view_access();
-    } else if let Some(matches) = matches.subcommand_matches("shell") {
+    
+    }else if let Some(matches) = matches.subcommand_matches("revoke-access") {
+        let superuser = matches.value_of("superuser").unwrap();
+        if superuser != SUPERUSER {
+            eprintln!("Only superuser can revoke access.");
+            return;
+        }
+        let ip = matches.value_of("ip").unwrap();
+        let server = matches.value_of("server").unwrap();
+        revoke_access(ip, server);
+    }else if let Some(matches) = matches.subcommand_matches("shell") {
         let ip = matches.value_of("ip").unwrap();
         let server = matches.value_of("server").unwrap();
         launch_monitored_shell(ip, server);
@@ -141,6 +155,28 @@ fn view_access() {
     for access in data {
         println!("IP: {}, Server: {}, Sudo: {}, Valid Until: {:?}",
             access.ip_address, access.server_id, access.has_sudo, access.valid_until);
+    }
+}
+
+fn revoke_access(ip: &str, server: &str) {
+    let path = PathBuf::from("access_control.json");
+
+    if !path.exists() {
+        println!("Access control file not found.");
+        return;
+    }
+
+    let content = fs::read_to_string(&path).unwrap();
+    let mut access_list: Vec<Access> = serde_json::from_str(&content).unwrap_or_default();
+
+    let original_len = access_list.len();
+    access_list.retain(|entry| !(entry.ip_address == ip && entry.server_id == server));
+
+    if access_list.len() == original_len {
+        println!("No matching access found for IP {} on server {}", ip, server);
+    } else {
+        fs::write(&path, serde_json::to_string_pretty(&access_list).unwrap()).unwrap();
+        println!("Access revoked for IP {} on server {}", ip, server);
     }
 }
 
