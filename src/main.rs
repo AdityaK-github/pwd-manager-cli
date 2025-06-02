@@ -83,6 +83,13 @@ fn main() {
                 ),
         )
         .subcommand(
+            SubCommand::with_name("extend-access")
+                .arg(Arg::with_name("superuser").required(true))
+                .arg(Arg::with_name("ip").required(true))
+                .arg(Arg::with_name("server").required(true))
+                .arg(Arg::with_name("duration").required(true)),
+        )
+        .subcommand(
             SubCommand::with_name("shell")
                 .arg(Arg::with_name("ip").required(true))
                 .arg(Arg::with_name("server").required(true)),
@@ -132,7 +139,17 @@ fn main() {
         let ip = matches.value_of("ip");
         let server = matches.value_of("server");
         view_logs(ip, server);
-    } else if let Some(matches) = matches.subcommand_matches("shell") {
+    }else if let Some(matches) = matches.subcommand_matches("extend-access") {
+        let superuser = matches.value_of("superuser").unwrap();
+        if superuser != SUPERUSER {
+            eprintln!("Only superuser can extend access.");
+            return;
+        }
+        let ip = matches.value_of("ip").unwrap();
+        let server = matches.value_of("server").unwrap();
+        let duration = matches.value_of("duration").unwrap().parse::<i64>().unwrap_or(0);
+        extend_access(ip, server, duration);
+    }else if let Some(matches) = matches.subcommand_matches("shell") {
         let ip = matches.value_of("ip").unwrap();
         let server = matches.value_of("server").unwrap();
         launch_monitored_shell(ip, server);
@@ -212,6 +229,31 @@ fn revoke_access(ip: &str, server: &str) {
     } else {
         fs::write(&path, serde_json::to_string_pretty(&access_list).unwrap()).unwrap();
         println!("Access revoked for IP {} on server {}", ip, server);
+    }
+}
+
+fn extend_access(ip: &str, server: &str, duration: i64) {
+    let path = PathBuf::from("access_control.json");
+    if !path.exists() {
+        eprintln!("Access control file not found.");
+        return;
+    }
+    let content = fs::read_to_string(&path).unwrap();
+    let mut data: Vec<Access> = serde_json::from_str(&content).unwrap_or_default();
+    let now = Utc::now();
+
+    let mut found = false;
+    for entry in &mut data {
+        if entry.ip_address == ip && entry.server_id == server {
+            entry.valid_until = Some(now + chrono::Duration::minutes(duration));
+            println!("Access for {} on {} extended by {} minutes.", ip, server, duration);
+            found = true;
+        }
+    }
+    if !found {
+        println!("No access record found for IP {} on server {}", ip, server);
+    } else {
+        fs::write(&path, serde_json::to_string_pretty(&data).unwrap()).unwrap();
     }
 }
 

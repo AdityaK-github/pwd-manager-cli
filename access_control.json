@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "ip_address": "192.168.1.101",
+    "server_id": "server2",
+    "has_sudo": false,
+    "valid_until": "2025-06-02T11:39:44.569952890Z"
+  }
+]
