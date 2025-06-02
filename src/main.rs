@@ -38,10 +38,9 @@ fn main() {
         .about("Secure access orchestration")
         .subcommand(SubCommand::with_name("login")
             .arg(Arg::with_name("ip")
-                .index(1)  // Change here to positional argument
-                .required(true))
+                .index(1)                  .required(true))
             .arg(Arg::with_name("server")
-                .index(2)  // Change here to positional argument
+                .index(2)  
                 .required(true)))
         .subcommand(SubCommand::with_name("grant-access")
             .arg(Arg::with_name("superuser")
